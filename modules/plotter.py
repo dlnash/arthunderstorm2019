@@ -4,9 +4,225 @@ Author:      Deanna Nash, dlnash@ucsb.edu
 Description: Functions for plotting
 """
 
+
+import os
 import numpy as np
+import pandas as pd
+import xarray as xr
+import netCDF4 as nc
+import matplotlib.pyplot as plt
 import colorsys
-from matplotlib.colors import LinearSegmentedColormap # Linear interpolation for color maps
+from matplotlib.colors import LinearSegmentedColormap
+import seaborn as sns
+import cartopy.crs as ccrs
+import cartopy.feature as cfeature
+from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
+import matplotlib.ticker as mticker
+import matplotlib.animation as animation
+
+def simple_line_plot(df_name, df_loc, title=None, x_label=None,  y_label=None, color='b'):
+
+    '''A plug and chug quick line plot with one dependent variable, using matplotlib.
+    
+        Parameters
+        ----------
+        df_name: string
+            What data frame name taking data from, name potentially defined in resample (ex: df_daily).  
+        df_loc: int
+            What array index of a data frame to graph.
+        
+        title: string, optional
+        
+        x_label: string, optional
+        
+        y_label: string, optional
+        
+        color: string, optional
+            Change line color, can also add line styles.
+            Quick reminder of color options: b,g,r,c,m,y,k,w
+        
+        Returns
+        -------
+        Line plot of df_name and df_loc entered.        
+        '''
+    x=df_name.index
+    y=df_name.iloc[:,df_loc]
+    c=color
+    
+    plt.plot(x, y, c)
+    plt.title(title)
+    plt.xlabel(x_label)
+    plt.ylabel(y_label)
+
+    plt.xticks(rotation=90)
+    plt.show()
+
+    
+def simple_xarray_contour_map(data, cmap):
+    data = data
+    # Set map projection
+    mapcrs = ccrs.PlateCarree()  # what we want data to plot as
+    datacrs = ccrs.PlateCarree() # what projection data comes in
+
+    # Set up figure and axes
+    fig = plt.figure(figsize=(7, 5))
+    ax = fig.add_subplot(1, 1, 1, projection=mapcrs)
+
+    # Add data
+    p = ax.contourf(data.lon, data.lat, data[0].values, transform=datacrs,
+                cmap=cmap, extend='both')
+
+    # Add plot elements
+    ax.coastlines()
+    ax.gridlines()
+    t0 = pd.to_datetime(str(data.time.values[0])).strftime("%Y-%m-%d %H:%M")
+    plt.title(data.attrs['long_name'] + ' (' + data.attrs['units'] + ') at ' + t0)
+
+    # Add colorbar
+    cbar = plt.colorbar(p, orientation='horizontal',
+                        shrink=0.85, pad=0.05, 
+                        label=data.attrs['units'])
+
+    # Save to file
+    plt.savefig('plotfile.png')
+
+    # Show plot
+    plt.show()
+    
+def simple_xarray_pcolormesh_map(data, cmap, vmin, vmax):
+    data = data
+    # Set map projection
+    mapcrs = ccrs.PlateCarree()  # what we want data to plot as
+    datacrs = ccrs.PlateCarree() # what projection data comes in
+
+    # Set up figure and axes
+    fig = plt.figure(figsize=(7, 5))
+    ax = fig.add_subplot(1, 1, 1, projection=mapcrs)
+
+    # Add data
+    p = ax.pcolormesh(data.lon, data.lat, data[0].values, transform=datacrs,
+                cmap=cmap, vmin=vmin, vmax=vmax)
+
+    # Add plot elements
+    ax.coastlines()
+    ax.gridlines()
+    t0 = pd.to_datetime(str(data.time.values[0])).strftime("%Y-%m-%d %H:%M")
+    plt.title(data.attrs['long_name'] + ' (' + data.attrs['units'] + ') at ' + t0)
+
+    # Add colorbar
+    cbar = plt.colorbar(p, orientation='horizontal',
+                        shrink=0.85, pad=0.05, 
+                        label=data.attrs['units'])
+
+    # Save to file
+    plt.savefig('plotfile.png')
+
+    # Show plot
+    plt.show()
+    
+def simple_contour_plot (data, lons, lats, datacrs= ccrs.PlateCarree(), mapcrs= ccrs.PlateCarree(), title = None, data_units = '', sequential = False, diverging = False, colormap='', cbar_orientation = 'horizontal'):
+
+    '''A plug and chug quick contour plot for spatial data.
+    
+        Parameters
+        ----------
+        data: string
+        
+        lons: float
+        
+        lats: float
+        
+        datacrs: string, optional
+            What projection data comes in.
+            Note: If data comes in lons & lats, means that it is PlateCarree().
+            https://scitools.org.uk/cartopy/docs/latest/crs/projections.html#cartopy-projections
+            
+        mapcrs: string, optional
+            What projection you want output to be in.
+            
+        title: string, optional
+        
+        data_units: string, optional
+            Used to label the colorbar values.
+        
+        colormap: string, optional
+            https://matplotlib.org/3.1.0/tutorials/colors/colormaps.html
+            
+        cbar_orientation: string, optional
+            Color bar orientation, either horizonatal or vertical.
+            
+        Returns
+        -------
+        Contour plot of data within specified lat and lon.
+    
+        '''
+#     clevs = _nice_intervals(data, 10)
+    fig = plt.figure(figsize=(7, 5))
+    ax = fig.add_subplot(1, 1, 1, projection=mapcrs)
+    
+    if sequential == True:
+        colorbar = 'cool'
+    else: 
+        colobar = 'YlOrRd'
+    if diverging == True:
+        colorbar = 'RdBu'
+    else: 
+        colobar = 'YlOrRd'
+
+    p = ax.contourf(lons, lats, data, transform=datacrs,
+                cmap = colormap, extend='both'
+#                     , levels=clevs
+                   )
+    
+    ax.coastlines()
+    ax.gridlines()
+    plt.title(title)
+    
+    cbar = plt.colorbar(p, orientation=cbar_orientation,
+                    shrink=0.85, pad=0.05, label=data_units)
+    
+    plt.show()
+
+
+
+def _nice_intervals(data, nlevs):
+    '''
+    Purpose::
+        Calculates nice intervals between each color level for colorbars
+        and contour plots. The target minimum and maximum color levels are
+        calculated by taking the minimum and maximum of the distribution
+        after cutting off the tails to remove outliers.
+    Input::
+        data - an array of data to be plotted
+        nlevs - an int giving the target number of intervals
+    Output::
+        clevs - A list of floats for the resultant colorbar levels
+    '''
+    # Find the min and max levels by cutting off the tails of the distribution
+    # This mitigates the influence of outliers
+    data = data.ravel()
+    mn = mstats.scoreatpercentile(data, 5)
+    mx = mstats.scoreatpercentile(data, 95)
+    #if there min less than 0 and
+    # or max more than 0 
+    #put 0 in center of color bar
+    if mn < 0 and mx > 0:
+        level = max(abs(mn), abs(mx))
+        mnlvl = -1 * level
+        mxlvl = level
+    #if min is larger than 0 then
+    #have color bar between min and max
+    else:
+        mnlvl = mn
+        mxlvl = mx
+    locator = mpl.ticker.MaxNLocator(nlevs)
+    clevs = locator.tick_values(mnlvl, mxlvl)
+
+    # Make sure the bounds of clevs are reasonable since sometimes
+    # MaxNLocator gives values outside the domain of the input data
+    clevs = clevs[(clevs >= mnlvl) & (clevs <= mxlvl)]
+    return clevs
+
 
 def loadCPT(path):
     """A function that loads a .cpt file and converts it into a colormap for the colorbar.
@@ -105,8 +321,6 @@ def make_cmap(colors, position=None, bit=False):
     colorbar and the last is the highest.
     position contains values from 0 to 1 to dictate the location of each color.
     '''
-    import matplotlib as mpl
-    import numpy as np
     bit_rgb = np.linspace(0,1,256)
     if position == None:
         position = np.linspace(0,1,len(colors))
@@ -126,5 +340,105 @@ def make_cmap(colors, position=None, bit=False):
         cdict['green'].append((pos, color[1], color[1]))
         cdict['blue'].append((pos, color[2], color[2]))
 
-    cmap = mpl.colors.LinearSegmentedColormap('my_colormap',cdict,256)
+    cmap = LinearSegmentedColormap('my_colormap',cdict,256)
     return cmap
+
+
+def _drawmap(fig, lons, lats, VO, cmap, clevs, title):
+    '''Draw contour map for create_animation.'''
+    # Set global extent on map
+    ext = [-180.0, 180.0, -90., 90.]
+    
+    # Set map and data projections
+    datacrs = ccrs.PlateCarree()  ## the projection the data is in
+    mapcrs = ccrs.PlateCarree() ## the projection you want your map displayed in
+    
+    # Add subplot, title, and set extent
+    ax = fig.add_subplot(1,1,1, projection=mapcrs)
+    ax.set_title(title, fontsize=14)
+    ax.set_extent(ext, crs=mapcrs)
+    
+    # Add Border Features
+    coast = ax.coastlines(linewidths=1.0)
+    ax.add_feature(cfeature.BORDERS)
+    
+    # Add grid lines
+    ndeg=20.
+    gl = ax.gridlines(crs=datacrs, draw_labels=True,
+                      linewidth=.5, color='black', alpha=0.5, linestyle='--')
+    gl.xlocator = mticker.FixedLocator(np.arange(ext[0], ext[1]+ndeg, ndeg))
+    gl.ylocator = mticker.FixedLocator(np.arange(ext[2], ext[3]+ndeg, ndeg))
+    gl.xformatter = LONGITUDE_FORMATTER
+    gl.yformatter = LATITUDE_FORMATTER
+    gl.xlabels_top = False
+    gl.ylabels_right = False
+    
+    # Add contour plot
+    cs = ax.contourf(lons, lats, VO, transform=datacrs, cmap=cmap, levels=clevs, zorder=1)
+    return cs
+    
+def _myanimate(i, fig, DS, var, lats, lons, cmap, clevs):
+    '''Loop through time steps for create_animation.'''
+    # Clear current axis to overplot next time step
+    ax = fig.gca()
+    ax.clear()
+    # Loop through time steps in ds
+    VO = DS[var].values[i]
+    # Set title based on long name and current time step
+    ts = pd.to_datetime(str(DS.time.values[i])).strftime("%Y-%m-%d %H:%M")
+    long_name = DS[var].long_name
+    title = '{0} at {1}'.format(long_name, ts)
+    # Add next contour map
+    new_contour = _drawmap(fig, lons, lats, VO, cmap, clevs, title) 
+    return new_contour
+
+def create_animation(DS, lats, lons, var, clevs, cmap):
+    '''Create an mp4 animation using an xarray dataset with lat, lon, and time dimensions.
+    
+        Parameters
+        ----------
+        DS: xarray dataset object
+              
+        lats: int
+            Array of latitudes from xarray dataset object
+        lons: int
+            Array of longitudes from xarray dataset object
+        var: string
+            Variable name to plot
+        clevs: int
+            Contour levels to plot
+        cmap: string
+            Colormap for plotting
+            
+        Returns
+        -------
+        filename, mp4 file of animation
+        
+        '''
+    
+    # Get information from ds
+    long_name = DS[var].long_name
+    units = DS[var].units
+    t0 = pd.to_datetime(str(DS.time.values[0])).strftime("%Y-%m-%d %H:%M")
+    title = '{0} at {1}'.format(long_name, t0)
+    FFMpegWriter = animation.writers['ffmpeg']
+    metadata = dict(title=title,
+                    comment='')
+    writer = FFMpegWriter(fps=20, metadata=metadata)
+    
+    # Create a new figure window
+    fig = plt.figure(figsize=[12,4])
+    # Draw first timestep
+    first_contour = _drawmap(fig, lons, lats, DS[var].values[0], cmap, clevs, title)
+
+    # Add a color bar
+    cbar = fig.colorbar(first_contour, orientation='vertical', cmap=cmap, shrink=0.55)
+    cbar.set_label(units, fontsize=12)
+    
+    # Loop through animation
+    ani = animation.FuncAnimation(fig, _myanimate, frames=np.arange(len(DS[var])),
+                                  fargs=(fig, DS, var, lats, lons, cmap, clevs), interval=50)
+    filename = long_name + ".mp4"
+    ani.save(filename)
+    
+    return filename
