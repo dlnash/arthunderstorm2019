@@ -1,3 +1,6 @@
 .ipynb_checkpoints
 *.jpg
 *.png
+dask-worker-space/
+figures/
+MERRA2_analysis/
