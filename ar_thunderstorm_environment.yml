@@ -20,7 +20,7 @@ dependencies:
   - ipykernel
   - jupyter
   - geopandas
-  - wrf
+  - wrf-python
   
   - pip:
     - descartes
