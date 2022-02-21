@@ -21,6 +21,7 @@ dependencies:
   - jupyter
   - geopandas
   - wrf-python
+  - zarr
   
   - pip:
     - descartes
